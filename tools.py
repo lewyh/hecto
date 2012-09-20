@@ -8,7 +8,7 @@ import glob
 import spcl
 import os
 
-def fit_continuum(spectrum, wavelengths, order=1):
+def fit_continuum(spec, name='original', order=1):
     """Fits polynomial of user defined order to the supplied spectrum.
     
     Required arguments:
@@ -16,6 +16,8 @@ def fit_continuum(spectrum, wavelengths, order=1):
             wavelengths     : One-dimensional array containing wavelengths 
                               corresponding to spectrum.
     """
+    spectrum = spec.spectra[name][0]
+    wavelengths = spec.spectra[name][1]
     fit = numpy.polyfit(wavelengths, spectrum, order)
     poly = numpy.poly1d(fit)
     return poly
