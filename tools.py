@@ -8,7 +8,7 @@ import glob
 import spcl
 import os
 
-def fit_continuum(spec, name='original', order=1):
+def fit_continuum(Spec, specid='original', order=1):
     """Fits polynomial of user defined order to the supplied spectrum.
     
     Required arguments:
@@ -16,44 +16,49 @@ def fit_continuum(spec, name='original', order=1):
             wavelengths     : One-dimensional array containing wavelengths 
                               corresponding to spectrum.
     """
-    spectrum = spec.spectra[name][0]
-    wavelengths = spec.spectra[name][1]
+    spectrum = Spec.spectra[specid][0]
+    wavelengths = Spec.spectra[specid][1]
     fit = numpy.polyfit(wavelengths, spectrum, order)
     poly = numpy.poly1d(fit)
     return poly
 
-def lineheight(spectrum, line_id='OH8399'):
+def fit_line(Spec, line_id, profile='gaussian', keep_changes=False):
+    linedict = { 'OH8399' : [8390.0,8410.0,8399.17,10.0] }
+
+    line = linedict[line_id]
+
+    Spec.mask_wl(numpy.array(([line[0],line[1]])),line_id)
+    Spec.mask_wl(numpy.array(([line[0], line[2]-(line[3]/2)],
+                                  [line[2]+(line[3]/2),line[1]])), 
+                                  line_id+' continuum')
+    Spec.sigma_clipping(line_id+' continuum', name=line_id+' clipped',
+                            sigma_high=2, iterations=10)
+
+    poly = fit_continuum(Spec, line_id+' clipped', order=1)
+
+    lineprofile = Spec.spectra[line_id][0] - \
+                  poly(Spec.spectra[line_id][1])
+
+    fit = optimize.leastsq(profiles.errfunc, [line[2],line[3],1],
+                           args=(Spec.spectra[line_id][1],
+                                 lineprofile, profiles.gaussian))
+
+    if keep_changes==False:
+        del Spec.spectra[line_id]
+        del Spec.spectra[line_id+' continuum']
+        del Spec.spectra[line_id+' clipped']
+    return fit
+
+def lineheight(Spec, line_id='OH8399', profile='gaussian', 
+               keep_changes=False):
     """docstring for lineheight"""
     # Define linedict, which contains line identifiers as keys, and 
     # [minimum wavelength, maximum wavelength, central_wavelength, line width]
     # as values (minimum and maximum wavelengths define the line and a 
     # sensible amount of continuum on either side.
-    linedict = { 'OH8399' : [8390.0,8410.0,8399.17,10.0] }
-    line = linedict[line_id]
+    return fit_line(Spec, line_id, profile, keep_changes)[0][2]
 
-    spectrum.mask_wl(numpy.array(([line[0],line[1]])),line_id)
-
-    spectrum.mask_wl(numpy.array(([line[0], line[2]-(line[3]/2)],
-                                  [line[2]+(line[3]/2),line[1]])), 
-                                  line_id+' continuum')
-    spectrum.sigma_clipping(line_id+' continuum', name=line_id+' clipped',
-                            sigma_high=2, iterations=10)
-
-    fit = fit_continuum(spectrum.spectra[line_id+' clipped'][0],
-                        spectrum.spectra[line_id+' clipped'][1], order=1)
-
-    lineprofile = spectrum.spectra[line_id][0] - \
-                  fit(spectrum.spectra[line_id][1])
-
-    opt = optimize.leastsq(profiles.errfunc, [line[2],line[3],1],
-                           args=(spectrum.spectra[line_id][1],
-                                 lineprofile, profiles.gaussian))
-
-    return fit[0][2]
-
-    pass
-
-def redleak_correct(data, critical_slope=0.8):
+def redleak_correct(Spec, critical_slope=0.8):
     """Function which reads in spectrum, fits slope to continuum above 8600A.
     If slope is greatr than some critical value, then assume that red leak 
     needs to be fixed. Accomplish this by fitting higher order polynomial to
@@ -69,9 +74,9 @@ def redleak_correct(data, critical_slope=0.8):
             critical_slope  : Value for slope above which red leak correction 
                               is to be applied.
     """
-    wavelengths = data.spectra['original'][1]
-    spectrum = data.spectra['original'][0]
-    header = data.header
+    wavelengths = Spec.spectra['original'][1]
+    spectrum = Spec.spectra['original'][0]
+    header = Spec.header
     x = [8510,8530]
     mask = numpy.where((wavelengths>x[0])&(wavelengths<x[1]))
     lims = [[8555,8580],[8720,8755],[8782,8788],[8796,8806],[8814,8822],
@@ -96,6 +101,7 @@ def redleak_correct(data, critical_slope=0.8):
         corrected = numpy.array(spectrum[fixmask]-subtract,
                                 dtype=numpy.float32)
         spectrum[fixmask]=corrected
+        Spec.spectra['redleak_corr']=[spectrum, wavelengths]
         for i in range(len(fit.coeffs)):
             coeffi = str(fit.coeffs[i])
             header.update('REDLEAK'+str(i+1),coeffi,

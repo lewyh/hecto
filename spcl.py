@@ -4,6 +4,8 @@ from tools import *
 import math
 import os
 from pylab import *
+numpy.set_printoptions(threshold=3)
+
 
 def INDEX2WAVE(INDEX, CRVAL1, CD1):
     WAVE = CRVAL1+(INDEX*CD1)
@@ -98,6 +100,12 @@ class Spectrum:
         self.filename = filename
         self.ext = ext
 
+    def add_spectrum(self, spectrum, wavelengths, specid):
+        """docstring for add_spectrum"""
+        
+       # self.spectra['specid']=
+        pass
+
     def _use_spectrum(self, spectrum):
         try:
             spectrum = self.spectra[spectrum]
@@ -107,7 +115,7 @@ class Spectrum:
             print "You tried to use spectrum key \'"+spectrum+"\'"
             print "The spectrum keys available are: "+str(self.spectra.keys())
             return 0
-        return spectrum
+        return spectrum[0], spectrum[1]
 
     def _use_mask(self, mask):
         try:
@@ -120,32 +128,31 @@ class Spectrum:
             return 0
         return mask
 
-    def plot(self, spectrum='original', mask='true', 
+    def plot(self, specid='original', mask='true', 
              fig=None, axes=None, subplot=111, v_offset=0):
-        spectrum = self._use_spectrum(spectrum)
-        mask = self._use_mask(mask)
-        if (type(spectrum)==int)|(type(mask)==int):
+        spectrum, wavelengths = self._use_spectrum(specid)
+        if (type(spectrum)==int):
             return
         else:
             if get_fignums()==[] or fig=='new':
                 fig = figure()
                 axes = fig.add_subplot(subplot)
-            xlim(min(self.wavelengths[mask]),
-                 max(self.wavelengths[mask]))
+            xlim(min(wavelengths),
+                 max(wavelengths))
             xlabel('Wavelength ('+self.units+')')
             ylabel('Counts')
             suptitle(self.target,size=14)
             title("("+self.spectype+" "+self.header['RA']+" "+\
                   self.header['DEC']+" EXPTIME:"+\
                   str(self.header['EXPTIME'])+"s)",size=12)
-            plot(self.wavelengths[mask],self.spectrum[mask]+v_offset, 
+            plot(wavelengths,spectrum+v_offset, 
                  label=self.target)
         return axes
 
             
 
     def mask_wl(self, wavelength_ranges, name, 
-                spectrum='original', invert=False):
+                specid='original', invert=False):
         """Accepts spectrum from read(). Returns mask based on provided
            wavelength ranges.
 
@@ -160,8 +167,8 @@ class Spectrum:
                 (default = False)   supplied - useful for masks that simply 
                                     exclude a region (e.g. remove a line). 
         """
-        wavelengths = self.wavelengths
-        mask = self.masks['true']
+        spectrum, wavelengths = self._use_spectrum(specid)
+        mask = wavelengths>0
         # Checks shape of supplied wavelength range array in order to
         # determine whether one or more ranges have been supplied. Can't
         # loop over a single range so treat this case differently.
@@ -198,8 +205,7 @@ class Spectrum:
         # Saves the mask as 'name' in the self.masks dict. Also saves the 
         # masked [spectrum, wavelength] as a list in the self.spectra dict.
         self.masks[name]=final_mask
-        self.spectra[name]=[self.spectra[spectrum][0][final_mask],
-                            self.spectra[spectrum][1][final_mask]]
+        self.spectra[name]=[spectrum[final_mask], wavelengths[final_mask]]
         return
 
     def redleak(self, spectrum='original'):
@@ -208,20 +214,20 @@ class Spectrum:
         self.header = redleak_returned[1]
         return
 
-    def sigma_clipping(self, spectrum='original', name='clipped',
+    def sigma_clipping(self, specid='original', name='clipped',
                        sigma_high=3, iterations=3):
+        spectrum, wavelengths = self._use_spectrum(specid)
         i=0
         while i<iterations:
-            median = numpy.median(self.spectra[spectrum][0])
-            stdev = numpy.std(self.spectra[spectrum][0])
-            diff = abs(self.spectra[spectrum][0]-median)
+            median = numpy.median(spectrum)
+            stdev = numpy.std(spectrum)
+            diff = abs(spectrum-median)
             if i==0:
-                mask = diff>(sigma_high*stdev)
+                mask = diff<(sigma_high*stdev)
             else:
-                mask = mask & (diff>(sigma_high*stdev))
+                mask = mask & (diff<(sigma_high*stdev))
             i+=1
         self.masks[name] = mask
-        self.spectra[name] = [self.spectra[spectrum][0][mask],
-                              self.spectra[spectrum][1][mask]]
+        self.spectra[name] = [spectrum[mask], wavelengths[mask]]
         return mask
 
