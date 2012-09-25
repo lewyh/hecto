@@ -8,7 +8,7 @@ import glob
 import spcl
 import os
 
-def fit_continuum(Spec, specid='original', order=1):
+def fit_continuum(Spec, spec_id='original', order=1):
     """Fits polynomial of user defined order to the supplied spectrum.
     
     Required arguments:
@@ -16,21 +16,22 @@ def fit_continuum(Spec, specid='original', order=1):
             wavelengths     : One-dimensional array containing wavelengths 
                               corresponding to spectrum.
     """
-    spectrum = Spec.spectra[specid][0]
-    wavelengths = Spec.spectra[specid][1]
+    spectrum = Spec.spectra[spec_id][0]
+    wavelengths = Spec.spectra[spec_id][1]
     fit = numpy.polyfit(wavelengths, spectrum, order)
     poly = numpy.poly1d(fit)
     return poly
 
-def fit_line(Spec, line_id, profile='gaussian', keep_changes=False):
+def fit_line(Spec, line_id, spec_id, profile, keep_changes, plt):
+    profdict = { 'gaussian' : profiles.gaussian }
     linedict = { 'OH8399' : [8390.0,8410.0,8399.17,10.0] }
 
     line = linedict[line_id]
 
-    Spec.mask_wl(numpy.array(([line[0],line[1]])),line_id)
+    Spec.mask_wl(numpy.array(([line[0],line[1]])),line_id,spec_id)
     Spec.mask_wl(numpy.array(([line[0], line[2]-(line[3]/2)],
                                   [line[2]+(line[3]/2),line[1]])), 
-                                  line_id+' continuum')
+                                  line_id+' continuum',spec_id)
     Spec.sigma_clipping(line_id+' continuum', name=line_id+' clipped',
                             sigma_high=2, iterations=10)
 
@@ -41,7 +42,12 @@ def fit_line(Spec, line_id, profile='gaussian', keep_changes=False):
 
     fit = optimize.leastsq(profiles.errfunc, [line[2],line[3],1],
                            args=(Spec.spectra[line_id][1],
-                                 lineprofile, profiles.gaussian))
+                                 lineprofile, profdict[profile]))
+    if plt==True:
+        wls = numpy.arange(Spec.spectra[line_id][1][0],
+                           Spec.spectra[line_id][1][-1], 0.001)
+
+        plot(wls, profdict[profile](fit[0],wls)+poly(wls))
 
     if keep_changes==False:
         del Spec.spectra[line_id]
@@ -49,14 +55,14 @@ def fit_line(Spec, line_id, profile='gaussian', keep_changes=False):
         del Spec.spectra[line_id+' clipped']
     return fit
 
-def lineheight(Spec, line_id='OH8399', profile='gaussian', 
-               keep_changes=False):
+def lineheight(Spec, line_id='OH8399', spec_id='original',
+               profile='gaussian', keep_changes=False, plt=False):
     """docstring for lineheight"""
     # Define linedict, which contains line identifiers as keys, and 
     # [minimum wavelength, maximum wavelength, central_wavelength, line width]
     # as values (minimum and maximum wavelengths define the line and a 
     # sensible amount of continuum on either side.
-    return fit_line(Spec, line_id, profile, keep_changes)[0][2]
+    return fit_line(Spec, line_id, spec_id, profile, keep_changes, plt)[0][2]
 
 def redleak_correct(Spec, critical_slope=0.8):
     """Function which reads in spectrum, fits slope to continuum above 8600A.

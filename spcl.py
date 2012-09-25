@@ -100,10 +100,10 @@ class Spectrum:
         self.filename = filename
         self.ext = ext
 
-    def add_spectrum(self, spectrum, wavelengths, specid):
+    def add_spectrum(self, spectrum, wavelengths, spec_id):
         """docstring for add_spectrum"""
         
-       # self.spectra['specid']=
+       # self.spectra['spec_id']=
         pass
 
     def _use_spectrum(self, spectrum):
@@ -128,9 +128,9 @@ class Spectrum:
             return 0
         return mask
 
-    def plot(self, specid='original', mask='true', 
+    def plot(self, spec_id='original', mask='true', 
              fig=None, axes=None, subplot=111, v_offset=0):
-        spectrum, wavelengths = self._use_spectrum(specid)
+        spectrum, wavelengths = self._use_spectrum(spec_id)
         if (type(spectrum)==int):
             return
         else:
@@ -149,10 +149,8 @@ class Spectrum:
                  label=self.target)
         return axes
 
-            
-
     def mask_wl(self, wavelength_ranges, name, 
-                specid='original', invert=False):
+                spec_id='original', invert=False):
         """Accepts spectrum from read(). Returns mask based on provided
            wavelength ranges.
 
@@ -167,7 +165,7 @@ class Spectrum:
                 (default = False)   supplied - useful for masks that simply 
                                     exclude a region (e.g. remove a line). 
         """
-        spectrum, wavelengths = self._use_spectrum(specid)
+        spectrum, wavelengths = self._use_spectrum(spec_id)
         mask = wavelengths>0
         # Checks shape of supplied wavelength range array in order to
         # determine whether one or more ranges have been supplied. Can't
@@ -208,15 +206,15 @@ class Spectrum:
         self.spectra[name]=[spectrum[final_mask], wavelengths[final_mask]]
         return
 
-    def redleak(self, spectrum='original'):
+    def redleak(self, spec_id='original'):
         redleak_returned = redleak_correct(self)
         self.spectra['corrected']=redleak_returned[0]
         self.header = redleak_returned[1]
         return
 
-    def sigma_clipping(self, specid='original', name='clipped',
+    def sigma_clipping(self, spec_id='original', name='clipped',
                        sigma_high=3, iterations=3):
-        spectrum, wavelengths = self._use_spectrum(specid)
+        spectrum, wavelengths = self._use_spectrum(spec_id)
         i=0
         while i<iterations:
             median = numpy.median(spectrum)
