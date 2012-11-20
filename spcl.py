@@ -77,15 +77,13 @@ class Spectrum:
             # existing array.
             self.data = fits.getdata(filename, 0)
             if len(self.data)>1:
-                onedspectrum = self.data[ext]
+                onedspectrum = self.data[ext][0]
             else:
-                onedspectrum = self.data[0]
-        
+                onedspectrum = self.data[0][0]
         # Calculate the maximum wavelength.
         WAVELMAX = INDEX2WAVE(len(onedspectrum), CRVAL1, CD1)
-        # Calculate array of wavelengths to simplify plotting.
+        # Calculate array of wavelengths to simplify plotting
         wavelengths = np.arange(CRVAL1, WAVELMAX, CD1)
-
             
         mask = (wavelengths > start)&(wavelengths < end)
         start = WAVE2INDEX(start, CRVAL1, CD1)
@@ -129,7 +127,7 @@ class Spectrum:
         return mask
 
     def plot(self, spec_id='original', mask='true', 
-             fig=None, axes=None, subplot=111, v_offset=0):
+             fig=None, axes=None, subplot=111, v_offset=0, titles=True):
         spectrum, wavelengths = self._use_spectrum(spec_id)
         if (type(spectrum)==int):
             return
@@ -141,10 +139,11 @@ class Spectrum:
                  max(wavelengths))
             xlabel('Wavelength ('+self.units+')')
             ylabel('Counts')
-            suptitle(self.target,size=14)
-            title("("+self.spectype+" "+self.header['RA']+" "+\
-                  self.header['DEC']+" EXPTIME:"+\
-                  str(self.header['EXPTIME'])+"s)",size=12)
+            if titles==True:
+                suptitle(self.target,size=14)
+                title("("+self.spectype+" "+self.header['RA']+" "+\
+                      self.header['DEC']+" EXPTIME:"+\
+                      str(self.header['EXPTIME'])+"s)",size=12)
             plot(wavelengths,spectrum+v_offset, 
                  label=self.target)
         return axes
